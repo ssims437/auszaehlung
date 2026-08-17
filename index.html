@@ -1,0 +1,1253 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8" />
+<title>Auszählung — dieselben Stimmen, verschiedene Sieger</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="description" content="Wahlverfahren nachgerechnet: drei Verfahren, drei Sieger aus demselben Stimmzettelstapel, der Condorcet-Zyklus, ein selbst gefundener Monotonie-Bruch und die Sitzverteilung nach D'Hondt, Sainte-Laguë und Hare-Niemeyer." />
+
+<style>
+  :root {
+    --grund: #EFEEEB;
+    --feld:  #FAFAF8;
+    --tief:  #E3E1DC;
+    --linie: #C8C4BB;
+    --tinte: #1A1917;
+    --leise: #66625B;
+    --netz:  #B6B2A8;
+    --p1: #1F5FA8;
+    --p2: #A8471F;
+    --p3: #2E6B4E;
+    --p4: #7A4E9A;
+    --p5: #8A7A2E;
+    --gut:  #2C7A34;
+    --warn: #A32C22;
+    --schatten: 0 1px 0 rgba(26,25,23,.05), 0 10px 24px -16px rgba(26,25,23,.45);
+    --f-fest: ui-monospace, "Cascadia Mono", "SF Mono", Consolas, "DejaVu Sans Mono", monospace;
+    --f-text: -apple-system, "Segoe UI Variable Text", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --grund: #131211; --feld: #1A1918; --tief: #0C0B0B; --linie: #302E2B;
+      --tinte: #E7E4DE; --leise: #918C84; --netz: #3E3B37;
+      --p1: #6CA8E8; --p2: #E08A5E; --p3: #58A87E; --p4: #B48ADA; --p5: #CBB85E;
+      --gut: #7FBF6A; --warn: #E0776B;
+      --schatten: 0 1px 0 rgba(255,255,255,.03), 0 12px 30px -18px #000;
+    }
+  }
+  :root[data-theme="dark"] {
+    --grund: #131211; --feld: #1A1918; --tief: #0C0B0B; --linie: #302E2B;
+    --tinte: #E7E4DE; --leise: #918C84; --netz: #3E3B37;
+    --p1: #6CA8E8; --p2: #E08A5E; --p3: #58A87E; --p4: #B48ADA; --p5: #CBB85E;
+    --gut: #7FBF6A; --warn: #E0776B;
+    --schatten: 0 1px 0 rgba(255,255,255,.03), 0 12px 30px -18px #000;
+  }
+
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--grund); color:var(--tinte);
+    font-family:var(--f-text); font-size:15px; line-height:1.55; -webkit-font-smoothing:antialiased; }
+  .blatt { max-width:1160px; margin:0 auto;
+    padding: clamp(20px,4vw,44px) clamp(14px,3vw,28px) 64px;
+    display:flex; flex-direction:column; gap:18px; }
+
+  .marke { font-family:var(--f-fest); font-size:10px; letter-spacing:.2em; text-transform:uppercase;
+    color:var(--leise); display:flex; gap:12px; align-items:center; margin:0; }
+  .marke::after { content:""; flex:1; height:1px; background:var(--linie); }
+  h1 { font-family:var(--f-fest); font-weight:700; font-size:clamp(24px,4.2vw,40px);
+    line-height:1.06; letter-spacing:-.03em; margin:0; text-wrap:balance; }
+  h1 span { color:var(--p2); }
+  h2 { font-family:var(--f-fest); font-size:12px; letter-spacing:.16em; text-transform:uppercase;
+    color:var(--leise); font-weight:400; margin:14px 0 0; display:flex; gap:12px; align-items:center; }
+  h2::after { content:""; flex:1; height:1px; background:var(--linie); }
+  .vorspann { max-width:70ch; color:var(--leise); margin:0; }
+  .vorspann b { color:var(--tinte); font-weight:600; }
+
+  .leiste { display:flex; gap:8px; flex-wrap:wrap; align-items:center;
+    background:var(--feld); border:1px solid var(--linie); padding:9px 11px; box-shadow:var(--schatten); }
+  .kl { font-family:var(--f-fest); font-size:10px; letter-spacing:.14em; text-transform:uppercase; color:var(--leise); }
+  button, select, input { font-family:var(--f-fest); font-size:12px; color:var(--tinte); background:var(--grund);
+    border:1px solid var(--linie); border-radius:0; padding:6px 10px; letter-spacing:.03em; }
+  button, select { cursor:pointer; }
+  button:hover, select:hover { border-color:var(--p1); }
+  button:active { background:var(--tief); }
+  button.haupt { background:var(--p1); border-color:var(--p1); color:var(--feld); }
+  button.klein { padding:2px 7px; font-size:12px; }
+  input[type=range] { padding:0; background:none; border:none; accent-color:var(--p1); vertical-align:middle; }
+  :focus-visible { outline:2px solid var(--p1); outline-offset:2px; }
+
+  .kasten { background:var(--feld); border:1px solid var(--linie); box-shadow:var(--schatten);
+    display:flex; flex-direction:column; min-width:0; }
+  .kasten-kopf { display:flex; gap:10px; align-items:center; flex-wrap:wrap;
+    padding:8px 11px; border-bottom:1px solid var(--linie); }
+  .kasten-leib { padding:11px; display:flex; flex-direction:column; gap:10px; min-width:0; }
+  .buehne { display:grid; grid-template-columns: 1fr 340px; gap:18px; align-items:start; }
+  @media (max-width: 900px) { .buehne { grid-template-columns: minmax(0,1fr); } }
+  .saeule { display:flex; flex-direction:column; gap:18px; min-width:0; }
+
+  canvas { width:100%; height:auto; display:block; background:var(--tief); border:1px solid var(--linie);
+    touch-action:none; }
+
+  table.liste { border-collapse:collapse; width:100%; font-family:var(--f-fest); font-size:12px; }
+  table.liste th, table.liste td { border-bottom:1px solid var(--linie); padding:5px 7px; text-align:left; }
+  table.liste th { color:var(--leise); font-weight:400; font-size:10px; letter-spacing:.1em; text-transform:uppercase; }
+  table.liste td.z { text-align:right; font-variant-numeric:tabular-nums; }
+  table.liste td.mitte { text-align:center; font-variant-numeric:tabular-nums; }
+  .gutt { color:var(--gut); } .schlecht { color:var(--warn); }
+  .sieger { font-weight:700; }
+
+  .werte { display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:1px;
+    background:var(--linie); border:1px solid var(--linie); }
+  .wert { background:var(--feld); padding:8px 10px; min-width:0; }
+  .wert .l { font-family:var(--f-fest); font-size:9.5px; letter-spacing:.13em; text-transform:uppercase; color:var(--leise); }
+  .wert .n { font-family:var(--f-fest); font-size:17px; font-variant-numeric:tabular-nums; }
+  .wert .n.warn { color:var(--warn); } .wert .n.gut { color:var(--gut); }
+
+  .hinweis { font-family:var(--f-fest); font-size:12px; color:var(--leise); letter-spacing:0; margin:0; }
+  .hinweis b { color:var(--tinte); font-weight:600; }
+  .chip { display:inline-block; width:10px; height:10px; margin-right:5px; vertical-align:-1px; }
+  .reihung { font-family:var(--f-fest); font-size:12.5px; letter-spacing:.04em; }
+  .gruppe { display:grid; grid-template-columns:auto 1fr auto auto; gap:5px 8px; align-items:center; }
+  .gruppe .z { font-family:var(--f-fest); font-size:12px; font-variant-numeric:tabular-nums;
+    text-align:right; min-width:4ch; }
+
+  .noten { display:grid; grid-template-columns:repeat(auto-fit,minmax(270px,1fr)); gap:18px; margin-top:6px; }
+  .noten section { background:var(--feld); border:1px solid var(--linie); padding:12px 14px; box-shadow:var(--schatten); }
+  .noten h3 { font-family:var(--f-fest); font-size:11px; letter-spacing:.14em; text-transform:uppercase;
+    color:var(--leise); margin:0 0 6px; font-weight:400; }
+  .noten p { margin:0; font-size:14px; }
+  code { font-family:var(--f-fest); font-size:12.5px; background:var(--tief); padding:1px 4px; }
+  .fuss { color:var(--leise); font-size:13px; border-top:1px solid var(--linie); padding-top:12px; }
+  .fuss a { color:var(--p1); }
+</style>
+</head>
+<body>
+<main class="blatt">
+
+  <p class="marke">Blatt · Wahlverfahren</p>
+  <h1>Auszählung — <span>dieselben Stimmen</span>, verschiedene Sieger</h1>
+  <p class="vorspann">
+    Ein Stapel Stimmzettel liegt fest, und trotzdem ist der Sieger nicht bestimmt: Er hängt am
+    <b>Auszählverfahren</b>. Hier stehen drei Verfahren nebeneinander, die aus demselben Stapel drei
+    verschiedene Gewinner ziehen — und darunter die Sitzverteilung, bei der die Frage nicht „wer",
+    sondern „wie viele" lautet und trotzdem dasselbe passiert.
+  </p>
+
+  <h2>Wer gewinnt</h2>
+
+  <div class="leiste">
+    <span class="kl">Stapel</span>
+    <select id="vorlage" aria-label="Stimmzettel-Vorlage"></select>
+    <span style="flex:1"></span>
+    <button id="b-thema">Ansicht</button>
+  </div>
+
+  <div class="buehne">
+    <div class="saeule">
+      <div class="kasten">
+        <div class="kasten-kopf">
+          <span class="kl">Der Stapel</span>
+          <span class="kl" id="stapel-lage" style="margin-left:auto"></span>
+        </div>
+        <div class="kasten-leib">
+          <div class="gruppe" id="gruppen"></div>
+          <p class="hinweis" id="vorlage-text"></p>
+        </div>
+      </div>
+
+      <div class="kasten">
+        <div class="kasten-kopf"><span class="kl">Jeder gegen jeden</span></div>
+        <div class="kasten-leib">
+          <table class="liste" id="duelle"><tbody></tbody></table>
+          <p class="hinweis" id="duell-fuss"></p>
+        </div>
+      </div>
+    </div>
+
+    <div class="kasten">
+      <div class="kasten-kopf"><span class="kl">Sieger je Verfahren</span></div>
+      <div class="kasten-leib">
+        <table class="liste" id="verfahren">
+          <thead><tr><th>Verfahren</th><th>Sieger</th><th class="z">Stand</th></tr></thead>
+          <tbody></tbody>
+        </table>
+        <p class="hinweis" id="verfahren-fuss"></p>
+      </div>
+    </div>
+  </div>
+
+  <h2>Wie viele Sitze</h2>
+
+  <div class="buehne">
+    <div class="saeule">
+      <div class="kasten">
+        <div class="kasten-kopf">
+          <span class="kl">Sitze nach vier Verfahren</span>
+          <span class="kl" id="sitz-lage" style="margin-left:auto"></span>
+        </div>
+        <div class="kasten-leib">
+          <canvas id="sitze" width="1024" height="250" aria-label="Sitzverteilung nach vier Verfahren"></canvas>
+          <table class="liste" id="sitztabelle"><tbody></tbody></table>
+        </div>
+      </div>
+
+      <div class="kasten">
+        <div class="kasten-kopf">
+          <span class="kl">Eine Partei, wachsendes Parlament</span>
+          <span class="kl" id="alabama-lage" style="margin-left:auto"></span>
+        </div>
+        <div class="kasten-leib">
+          <canvas id="alabama" width="1024" height="260" aria-label="Sitze einer Partei über die Parlamentsgröße"></canvas>
+          <p class="hinweis" id="alabama-fuss"></p>
+        </div>
+      </div>
+    </div>
+
+    <div class="saeule">
+      <div class="kasten">
+        <div class="kasten-kopf"><span class="kl">Stimmen und Sitze</span></div>
+        <div class="kasten-leib">
+          <div class="gruppe" id="parteien"></div>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+            <span class="kl">Sitze</span>
+            <input type="range" id="sitzzahl" min="5" max="200" value="63" style="flex:1;min-width:100px" aria-label="Zahl der Sitze" />
+            <span class="kl" id="sitzzahl-zahl" style="min-width:4ch;text-align:right"></span>
+          </div>
+          <p class="hinweis" id="parteien-fuss"></p>
+        </div>
+      </div>
+
+      <div class="kasten">
+        <div class="kasten-kopf"><span class="kl">Wer bevorzugt wird</span></div>
+        <div class="kasten-leib">
+          <div class="werte">
+            <div class="wert"><div class="l">größte Abweichung</div><div class="n" id="w-abw">—</div></div>
+            <div class="wert"><div class="l">Quotenbrüche</div><div class="n" id="w-quote">—</div></div>
+          </div>
+          <p class="hinweis" id="bevorzugt-fuss"></p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="kasten">
+    <div class="kasten-kopf">
+      <span class="kl">Beweis statt Behauptung</span>
+      <button id="b-pruefen" class="haupt" style="margin-left:auto">Prüfen</button>
+    </div>
+    <div class="kasten-leib">
+      <p class="hinweis">
+        Über Wahlverfahren wird gerne mit Anekdoten gestritten. Hier werden statt Anekdoten
+        <b>alle 2002 möglichen Stimmzettelstapel</b> mit drei Bewerbern und neun Wählern
+        durchgerechnet — jeder einzelne, ohne Auswahl — und gezählt, wie oft welches Verfahren den
+        Bewerber übergeht, der jeden Einzelvergleich gewinnt. Der Monotonie-Bruch wird nicht
+        behauptet, sondern <b>gesucht</b>: das kleinste Gegenbeispiel steht dann mit Zahlen da.
+        Die Sitzverfahren werden zweimal unabhängig gerechnet (Höchstzahlen und Divisorsuche)
+        und müssen bis auf den letzten Sitz übereinstimmen.
+      </p>
+      <table class="liste" id="pruef"><tbody></tbody></table>
+      <p class="hinweis" id="pruef-fuss">noch nicht geprüft</p>
+    </div>
+  </div>
+
+  <div class="noten">
+    <section>
+      <h3>Was Condorcet verlangt</h3>
+      <p>
+        Wer jeden Einzelvergleich gewinnt, soll gewinnen. Das klingt selbstverständlich und ist es
+        nicht: die relative Mehrheit übergeht diesen Bewerber regelmäßig, und beim Übertragen von
+        Stimmen kann er sogar in der ersten Runde ausscheiden. Manchmal gibt es ihn auch einfach
+        <b>nicht</b> — dann dreht sich A schlägt B schlägt C schlägt A im Kreis.
+      </p>
+    </section>
+    <section>
+      <h3>Warum Arrow kein Zynismus ist</h3>
+      <p>
+        Arrows Satz sagt nicht „Wahlen sind sinnlos", sondern: mehr als zwei Bewerber, und eine
+        Handvoll völlig harmloser Forderungen sind zusammen nicht erfüllbar. Jedes Verfahren
+        <b>wählt</b> also, welchen Fehler es macht. Wer das weiß, streitet über den Fehler statt
+        über die Absicht.
+      </p>
+    </section>
+    <section>
+      <h3>Sitze sind dasselbe Problem</h3>
+      <p>
+        Prozente lassen sich nicht in ganze Sitze teilen, ohne jemanden zu bevorzugen: D'Hondt
+        rundet zugunsten der Großen, Sainte-Laguë liegt näher am Ergebnis, Hare-Niemeyer hält die
+        Quote — und dafür kann eine Partei <b>Sitze verlieren, weil das Parlament wächst</b>. Auch
+        das ist hier gesucht, nicht erzählt.
+      </p>
+    </section>
+  </div>
+
+  <p class="fuss">
+    Eine einzelne HTML-Datei. Kein Build, keine Bibliothek, nichts verlässt den Browser.
+    <span style="display:block;margin-top:8px">
+      Verwandt:
+      <a href="https://ssims437.github.io/plotterblaetter/">Plotterblätter</a> ·
+      <a href="https://ssims437.github.io/redundanz/">Redundanz</a> ·
+      <a href="https://ssims437.github.io/reparatur/">Reparatur</a> ·
+      <a href="https://ssims437.github.io/wuerfel/">Würfel</a> ·
+      <a href="https://ssims437.github.io/rechenwerk/">Rechenwerk</a> ·
+      <a href="https://ssims437.github.io/nachkomma/">Nachkomma</a> ·
+      <a href="https://ssims437.github.io/zeitsprung/">Zeitsprung</a> ·
+      <a href="https://ssims437.github.io/gradtage/">Gradtage</a> ·
+      <a href="https://ssims437.github.io/stimmfuehrung/">Stimmführung</a> ·
+      <a href="https://ssims437.github.io/verzerrung/">Verzerrung</a> ·
+      <a href="https://ssims437.github.io/handschlag/">Handschlag</a> ·
+      <a href="https://ssims437.github.io/wegewahl/">Wegewahl</a> ·
+      <a href="https://ssims437.github.io/frequenzgang/">Frequenzgang</a> ·
+      <a href="https://ssims437.github.io/indexbaum/">Indexbaum</a>
+    </span>
+  </p>
+
+</main>
+
+<script>
+(function () {
+  "use strict";
+  const $ = (id) => document.getElementById(id);
+  const NAMEN = ["A", "B", "C", "D"];
+  const FARBEN = ["--p1", "--p2", "--p3", "--p4", "--p5"];
+
+  /* ===================== Einzelsieger-Verfahren =====================
+     Ein Stapel ist eine Liste von Gruppen: eine Reihung und wie viele Wähler
+     genau diese Reihung abgegeben haben. Gleichstände werden immer zugunsten
+     des zuerst genannten Bewerbers aufgelöst — deterministisch, damit die
+     erschöpfenden Läufe reproduzierbar bleiben. */
+
+  function ersteStimmen(stapel, m, raus) {
+    const z = new Array(m).fill(0);
+    for (const g of stapel) {
+      const erster = g.reihung.find((k) => !raus || !raus.has(k));
+      if (erster !== undefined) z[erster] += g.anzahl;
+    }
+    return z;
+  }
+
+  function stimmen(stapel) { return stapel.reduce((s, g) => s + g.anzahl, 0); }
+
+  /* Alle Zweikämpfe: matrix[i][j] = wie viele Wähler i vor j reihen. */
+  function duellMatrix(stapel, m) {
+    const matrix = Array.from({ length: m }, () => new Array(m).fill(0));
+    for (const g of stapel) {
+      const platz = new Array(m).fill(Infinity);
+      g.reihung.forEach((k, p) => platz[k] = p);
+      for (let i = 0; i < m; i++) for (let j = 0; j < m; j++) {
+        if (i !== j && platz[i] < platz[j]) matrix[i][j] += g.anzahl;
+      }
+    }
+    return matrix;
+  }
+
+  function condorcetSieger(matrix, m) {
+    for (let i = 0; i < m; i++) {
+      let schlaegtAlle = true;
+      for (let j = 0; j < m; j++) if (i !== j && !(matrix[i][j] > matrix[j][i])) schlaegtAlle = false;
+      if (schlaegtAlle) return i;
+    }
+    return -1;
+  }
+
+  const bester = (werte) => werte.reduce((b, v, i) => v > werte[b] ? i : b, 0);
+  const schlechtester = (werte, dabei) => {
+    let b = -1;
+    for (let i = 0; i < werte.length; i++) {
+      if (dabei && !dabei.has(i)) continue;
+      if (b === -1 || werte[i] < werte[b]) b = i;
+    }
+    return b;
+  };
+
+  function relativeMehrheit(stapel, m) {
+    const z = ersteStimmen(stapel, m, null);
+    return { sieger: bester(z), stand: z };
+  }
+
+  function borda(stapel, m) {
+    const punkte = new Array(m).fill(0);
+    for (const g of stapel) g.reihung.forEach((k, p) => punkte[k] += g.anzahl * (m - 1 - p));
+    return { sieger: bester(punkte), stand: punkte };
+  }
+
+  /* Übertragbare Einzelstimme für einen Sitz: schwächster fliegt, seine Zettel
+     wandern zur nächsten noch nicht ausgeschiedenen Wahl. */
+  function uebertragen(stapel, m) {
+    const raus = new Set();
+    const dabei = new Set(Array.from({ length: m }, (_, i) => i));
+    const runden = [];
+    for (;;) {
+      const z = ersteStimmen(stapel, m, raus);
+      const gesamt = dabei.size ? [...dabei].reduce((s, i) => s + z[i], 0) : 0;
+      runden.push([...dabei].map((i) => [i, z[i]]));
+      let fuehrend = -1;
+      for (const i of dabei) if (fuehrend === -1 || z[i] > z[fuehrend]) fuehrend = i;
+      if (dabei.size <= 1 || z[fuehrend] * 2 > gesamt) return { sieger: fuehrend, runden, stand: z };
+      const weg = schlechtester(z, dabei);
+      raus.add(weg); dabei.delete(weg);
+    }
+  }
+
+  function zweistufig(stapel, m) {
+    const z = ersteStimmen(stapel, m, null);
+    const reihe = Array.from({ length: m }, (_, i) => i).sort((a, b) => z[b] - z[a] || a - b);
+    const [x, y] = reihe;
+    if (y === undefined) return { sieger: x, stand: z };
+    const matrix = duellMatrix(stapel, m);
+    return { sieger: matrix[x][y] >= matrix[y][x] ? x : y, stand: z, paar: [x, y] };
+  }
+
+  const VERFAHREN = [
+    { id: "relativ", name: "Relative Mehrheit", f: relativeMehrheit,
+      text: "ein Kreuz, die meisten Kreuze gewinnen" },
+    { id: "zwei", name: "Zwei Wahlgänge", f: zweistufig,
+      text: "die zwei Stärksten treten gegeneinander an" },
+    { id: "uebertrag", name: "Übertragbare Stimme", f: uebertragen,
+      text: "der Schwächste fliegt, seine Zettel wandern weiter" },
+    { id: "borda", name: "Borda-Punkte", f: borda,
+      text: "Punkte nach Platz, alle Ränge zählen" }
+  ];
+
+  /* ===================== Stapel-Vorlagen ===================== */
+  const r = (...k) => k;
+  const VORLAGEN = {
+    spoiler: {
+      name: "Drei Verfahren, drei Sieger", m: 3,
+      gruppen: [
+        { reihung: r(0, 2, 1), anzahl: 35 },
+        { reihung: r(1, 2, 0), anzahl: 33 },
+        { reihung: r(2, 1, 0), anzahl: 32 }
+      ],
+      text: "Ein Stapel, aus dem drei gängige Verfahren drei verschiedene Sieger ziehen. " +
+            "Niemand hat betrogen, niemand hat sich verrechnet."
+    },
+    zyklus: {
+      name: "Der Kreis (Condorcet-Zyklus)", m: 3,
+      gruppen: [
+        { reihung: r(0, 1, 2), anzahl: 34 },
+        { reihung: r(1, 2, 0), anzahl: 33 },
+        { reihung: r(2, 0, 1), anzahl: 33 }
+      ],
+      text: "A schlägt B, B schlägt C, C schlägt A. Es gibt keinen Bewerber, der jeden " +
+            "Einzelvergleich gewinnt — die Mehrheit widerspricht sich selbst."
+    },
+    einigkeit: {
+      name: "Einigkeit", m: 3,
+      gruppen: [
+        { reihung: r(0, 1, 2), anzahl: 50 },
+        { reihung: r(1, 0, 2), anzahl: 30 },
+        { reihung: r(2, 1, 0), anzahl: 15 }
+      ],
+      text: "Der harmlose Fall: alle Verfahren kommen zum selben Ergebnis. Dann ist die Frage " +
+            "nach dem Verfahren belanglos — und nur dann."
+    },
+    vier: {
+      name: "Vier Bewerber, gespaltenes Lager", m: 4,
+      gruppen: [
+        { reihung: r(0, 1, 2, 3), anzahl: 26 },
+        { reihung: r(1, 0, 2, 3), anzahl: 22 },
+        { reihung: r(2, 3, 1, 0), anzahl: 27 },
+        { reihung: r(3, 2, 1, 0), anzahl: 25 }
+      ],
+      text: "Zwei Lager, jedes mit zwei Bewerbern: die relative Mehrheit belohnt das Lager, " +
+            "das sich weniger gespalten hat, nicht das größere."
+    },
+    monotonie: {
+      name: "Monotonie-Bruch (wird gesucht)", m: 3, suchen: true,
+      gruppen: [],
+      text: ""
+    }
+  };
+
+  let AKTUELL = "spoiler", STAPEL = [], M = 3;
+
+  /* ===================== Sitzverteilung =====================
+     Zwei Wege, dieselbe Antwort: Höchstzahlen (die Rechnung, die im
+     Wahlgesetz steht) und Divisorsuche (der Blick von der anderen Seite).
+     Stimmen sie nicht überein, ist einer von beiden falsch. */
+
+  const RUNDUNG = {
+    dhondt:   { name: "D'Hondt", teiler: (s) => s + 1, runden: (x) => Math.floor(x),
+                text: "rundet ab — begünstigt große Parteien" },
+    sainte:   { name: "Sainte-Laguë", teiler: (s) => 2 * s + 1, runden: (x) => Math.round(x),
+                text: "rundet zur nächsten ganzen Zahl — am nächsten am Stimmenanteil" },
+    adams:    { name: "Adams", teiler: (s) => s, runden: (x) => Math.ceil(x),
+                text: "rundet auf — begünstigt kleine Parteien" }
+  };
+
+  /* Höchstzahlen: jeden Sitz einzeln an die größte Zahl Stimmen/Teiler geben. */
+  function hoechstzahlen(stimmenListe, sitze, art) {
+    const teiler = RUNDUNG[art].teiler;
+    const erhalten = new Array(stimmenListe.length).fill(0);
+    for (let s = 0; s < sitze; s++) {
+      let best = -1, bestWert = -Infinity;
+      for (let i = 0; i < stimmenListe.length; i++) {
+        const t = teiler(erhalten[i]);
+        const wert = t === 0 ? Infinity : stimmenListe[i] / t;
+        if (wert > bestWert + 1e-12) { bestWert = wert; best = i; }
+      }
+      // Adams gibt jeder Partei zuerst einen Sitz (Teiler 0 → unendlich):
+      // bei Gleichstand unter mehreren Unendlichkeiten entscheidet die Stimmenzahl
+      if (bestWert === Infinity) {
+        best = -1; let meiste = -1;
+        for (let i = 0; i < stimmenListe.length; i++) {
+          if (teiler(erhalten[i]) === 0 && stimmenListe[i] > meiste) { meiste = stimmenListe[i]; best = i; }
+        }
+      }
+      erhalten[best]++;
+    }
+    return erhalten;
+  }
+
+  /* Divisorsuche: einen Wert d finden, bei dem die gerundeten Anteile genau die
+     Sitzzahl ergeben. Zweite, unabhängige Rechnung derselben Sache. */
+  function divisorsuche(stimmenListe, sitze, art, info) {
+    const runden = RUNDUNG[art].runden;
+    const gesamt = stimmenListe.reduce((s, v) => s + v, 0);
+    const summe = (d) => stimmenListe.reduce((s, v) => s + Math.max(art === "adams" ? 1 : 0, runden(v / d)), 0);
+    let lo = gesamt / (sitze * 40 + 1), hi = gesamt * 40;
+    for (let i = 0; i < 200; i++) {
+      const mi = (lo + hi) / 2;
+      if (summe(mi) > sitze) lo = mi; else hi = mi;
+    }
+    const d = (lo + hi) / 2;
+    const erhalten = stimmenListe.map((v) => Math.max(art === "adams" ? 1 : 0, runden(v / d)));
+    /* Bei einem exakten Gleichstand gibt es keinen Divisor, der genau die
+       Sitzzahl trifft: die Summe springt über das Ziel. Dann wird nachjustiert —
+       und zwar mit derselben Vorfahrtsregel wie bei den Höchstzahlen, nämlich
+       „bei Gleichstand gewinnt die zuerst genannte Partei". Deshalb gibt der
+       Abbau bei Gleichstand der zuletzt genannten Partei den Sitz weg. */
+    let stand = erhalten.reduce((s, v) => s + v, 0);
+    if (info) info.eindeutig = (stand === sitze);
+    while (stand > sitze) {
+      let opfer = 0, kleinster = Infinity;
+      for (let i = 0; i < erhalten.length; i++) {
+        if (erhalten[i] <= (art === "adams" ? 1 : 0)) continue;
+        const wert = stimmenListe[i] / RUNDUNG[art].teiler(erhalten[i] - 1);
+        if (wert <= kleinster) { kleinster = wert; opfer = i; }
+      }
+      erhalten[opfer]--; stand--;
+    }
+    while (stand < sitze) {
+      let glueck = 0, groesster = -Infinity;
+      for (let i = 0; i < erhalten.length; i++) {
+        const t = RUNDUNG[art].teiler(erhalten[i]);
+        const wert = t === 0 ? Infinity : stimmenListe[i] / t;
+        if (wert > groesster) { groesster = wert; glueck = i; }
+      }
+      erhalten[glueck]++; stand++;
+    }
+    return erhalten;
+  }
+
+  /* Hare-Niemeyer: ganze Quoten, dann die größten Reste. */
+  function hareNiemeyer(stimmenListe, sitze) {
+    const gesamt = stimmenListe.reduce((s, v) => s + v, 0);
+    const quoten = stimmenListe.map((v) => v * sitze / gesamt);
+    const erhalten = quoten.map((q) => Math.floor(q));
+    let rest = sitze - erhalten.reduce((s, v) => s + v, 0);
+    const reihe = quoten
+      .map((q, i) => ({ i, rest: q - Math.floor(q), stimmen: stimmenListe[i] }))
+      .sort((a, b) => b.rest - a.rest || b.stimmen - a.stimmen || a.i - b.i);
+    for (let k = 0; k < rest; k++) erhalten[reihe[k % reihe.length].i]++;
+    return erhalten;
+  }
+
+  const SITZVERFAHREN = [
+    { id: "dhondt", name: "D'Hondt", f: (v, s) => hoechstzahlen(v, s, "dhondt") },
+    { id: "sainte", name: "Sainte-Laguë", f: (v, s) => hoechstzahlen(v, s, "sainte") },
+    { id: "hare", name: "Hare-Niemeyer", f: (v, s) => hareNiemeyer(v, s) },
+    { id: "adams", name: "Adams", f: (v, s) => hoechstzahlen(v, s, "adams") }
+  ];
+
+  const PARTEIEN = ["Rot", "Blau", "Grün", "Gelb", "Grau"];
+  let STIMMEN = [382000, 291000, 176000, 94000, 57000];
+  let SITZE = 63;
+
+  /* ===================== Anzeige: wer gewinnt ===================== */
+  function farbe(n) { return getComputedStyle(document.documentElement).getPropertyValue(n).trim(); }
+  const chip = (i) => "<span class='chip' style='background:var(" + FARBEN[i % 5] + ")'></span>";
+  const reihungText = (reihung) => reihung.map((k) => NAMEN[k]).join(" > ");
+
+  function vorlageLaden(schluessel) {
+    AKTUELL = schluessel;
+    const v = VORLAGEN[schluessel];
+    M = v.m;
+    if (v.suchen) {
+      const fund = monotonieSuchen(9);
+      if (fund) {
+        STAPEL = fund.vorher.map((g) => ({ reihung: g.reihung.slice(), anzahl: g.anzahl }));
+        v.text = "Erschöpfend gesucht und gefunden: <b>" + fund.geprueft.toLocaleString("de-AT") +
+          " Stapel</b> mit drei Bewerbern und neun Wählern durchgerechnet. In diesem hier gewinnt " +
+          "<b>" + NAMEN[fund.siegerVorher] + "</b>. " +
+          (fund.wechsel === 1 ? "Hebt <b>ein Wähler</b> " : "Heben <b>" + fund.wechsel + " Wähler</b> ") +
+          "der Gruppe <b>" + reihungText(fund.gruppe) + "</b> genau diesen Sieger um einen Platz — " +
+          "also zu <b>" + reihungText(fund.neueReihung) + "</b> — gewinnt plötzlich <b>" +
+          NAMEN[fund.siegerNachher] + "</b>. Mehr Zuspruch, kein Sieg: das ist der Monotonie-Bruch " +
+          "der übertragbaren Stimme.";
+      } else {
+        v.text = "Kein Gegenbeispiel gefunden — dann wäre die Behauptung im Blatt falsch.";
+      }
+    } else {
+      STAPEL = v.gruppen.map((g) => ({ reihung: g.reihung.slice(), anzahl: g.anzahl }));
+    }
+    gruppenBauen();
+    alles();
+  }
+
+  function gruppenBauen() {
+    const g = $("gruppen");
+    g.textContent = "";
+    STAPEL.forEach((gruppe, idx) => {
+      const name = document.createElement("span");
+      name.className = "reihung";
+      name.innerHTML = gruppe.reihung.map((k) => chip(k) + NAMEN[k]).join(" &gt; ");
+      const regler = document.createElement("input");
+      regler.type = "range"; regler.min = "0"; regler.max = "60";
+      regler.value = String(gruppe.anzahl);
+      regler.setAttribute("aria-label", "Wähler mit Reihung " + reihungText(gruppe.reihung));
+      const zahl = document.createElement("span");
+      zahl.className = "z";
+      const dreh = document.createElement("button");
+      dreh.className = "klein"; dreh.textContent = "drehen";
+      dreh.title = "Reihung umkehren";
+      const auffrischen = () => { gruppe.anzahl = +regler.value; zahl.textContent = gruppe.anzahl; alles(); };
+      regler.addEventListener("input", auffrischen);
+      dreh.addEventListener("click", () => { gruppe.reihung.reverse(); gruppenBauen(); alles(); });
+      g.append(name, regler, zahl, dreh);
+      zahl.textContent = gruppe.anzahl;
+    });
+  }
+
+  function alles() {
+    const gesamt = stimmen(STAPEL);
+    const matrix = duellMatrix(STAPEL, M);
+    const cw = condorcetSieger(matrix, M);
+    $("stapel-lage").textContent = gesamt + " Wähler · " + M + " Bewerber · " + STAPEL.length + " Gruppen";
+    $("vorlage-text").innerHTML = VORLAGEN[AKTUELL].text;
+
+    // Duelle
+    const tb = $("duelle").querySelector("tbody");
+    tb.textContent = "";
+    const kopf = document.createElement("tr");
+    kopf.innerHTML = "<th>schlägt →</th>" + NAMEN.slice(0, M).map((n, i) => "<th class='mitte'>" + chip(i) + n + "</th>").join("") +
+      "<th class='z'>Siege</th>";
+    tb.append(kopf);
+    for (let i = 0; i < M; i++) {
+      const tr = document.createElement("tr");
+      let siege = 0;
+      let zellen = "";
+      for (let j = 0; j < M; j++) {
+        if (i === j) { zellen += "<td class='mitte' style='color:var(--leise)'>—</td>"; continue; }
+        const gewinnt = matrix[i][j] > matrix[j][i];
+        if (gewinnt) siege++;
+        zellen += "<td class='mitte " + (gewinnt ? "gutt" : "schlecht") + "'>" +
+          matrix[i][j] + ":" + matrix[j][i] + "</td>";
+      }
+      tr.innerHTML = "<td>" + chip(i) + NAMEN[i] + (i === cw ? " <span class='kl'>Condorcet</span>" : "") +
+        "</td>" + zellen + "<td class='z'>" + siege + "</td>";
+      tb.append(tr);
+    }
+    $("duell-fuss").innerHTML = cw >= 0
+      ? "<b>" + NAMEN[cw] + "</b> gewinnt jeden Einzelvergleich — der Condorcet-Sieger. Jedes " +
+        "Verfahren, das jemand anderen wählt, übergeht eine Mehrheit."
+      : "<b>Es gibt keinen Condorcet-Sieger:</b> die Einzelvergleiche drehen sich im Kreis. " +
+        "Dann ist keine Wahl „die richtige" + "“" + " — nur verschieden falsch.";
+
+    // Verfahren
+    const vb = $("verfahren").querySelector("tbody");
+    vb.textContent = "";
+    const sieger = new Set();
+    for (const v of VERFAHREN) {
+      const erg = v.f(STAPEL, M);
+      sieger.add(erg.sieger);
+      const standText = erg.stand.slice(0, M).map((s, i) => NAMEN[i] + " " + s).join(" · ");
+      const tr = document.createElement("tr");
+      tr.innerHTML = "<td>" + v.name + "<div class='kl' style='letter-spacing:0;text-transform:none'>" +
+        v.text + "</div></td><td class='sieger'>" + chip(erg.sieger) + NAMEN[erg.sieger] +
+        (cw >= 0 ? (erg.sieger === cw ? " <span class='gutt kl'>= Condorcet</span>"
+                                      : " <span class='schlecht kl'>≠ Condorcet</span>") : "") +
+        "</td><td class='z' style='color:var(--leise)'>" + standText + "</td>";
+      vb.append(tr);
+    }
+    const cTr = document.createElement("tr");
+    cTr.innerHTML = "<td>Einzelvergleiche (Condorcet)<div class='kl' style='letter-spacing:0;text-transform:none'>" +
+      "wer jeden Zweikampf gewinnt</div></td><td class='sieger'>" +
+      (cw >= 0 ? chip(cw) + NAMEN[cw] : "<span class='schlecht'>niemand</span>") +
+      "</td><td class='z' style='color:var(--leise)'>" +
+      (cw >= 0 ? "eindeutig" : "Zyklus") + "</td>";
+    vb.append(cTr);
+
+    $("verfahren-fuss").innerHTML = sieger.size > 1
+      ? "<b>" + sieger.size + " verschiedene Sieger</b> aus einem einzigen Stapel Stimmzettel. " +
+        "Die Auszählregel entscheidet mit."
+      : "Alle Verfahren stimmen überein — dieser Stapel ist der harmlose Fall.";
+
+    sitzeAlles();
+  }
+
+  /* ===================== Anzeige: Sitze ===================== */
+  function parteienBauen() {
+    const g = $("parteien");
+    g.textContent = "";
+    STIMMEN.forEach((v, i) => {
+      const name = document.createElement("span");
+      name.className = "reihung";
+      name.innerHTML = chip(i) + PARTEIEN[i];
+      const regler = document.createElement("input");
+      regler.type = "range"; regler.min = "0"; regler.max = "500000"; regler.step = "1000";
+      regler.value = String(v);
+      regler.setAttribute("aria-label", "Stimmen " + PARTEIEN[i]);
+      const zahl = document.createElement("span");
+      zahl.className = "z"; zahl.style.minWidth = "7ch";
+      const leer = document.createElement("span");
+      const auffrischen = () => {
+        STIMMEN[i] = +regler.value;
+        zahl.textContent = (STIMMEN[i] / 1000).toFixed(0) + "k";
+        sitzeAlles();
+      };
+      regler.addEventListener("input", auffrischen);
+      g.append(name, regler, zahl, leer);
+      auffrischen();
+    });
+  }
+
+  function sitzeAlles() {
+    SITZE = +$("sitzzahl").value;
+    $("sitzzahl-zahl").textContent = SITZE;
+    const gesamt = STIMMEN.reduce((s, v) => s + v, 0);
+    const ergebnisse = SITZVERFAHREN.map((v) => ({ v, sitze: v.f(STIMMEN, SITZE) }));
+
+    // Tabelle
+    const tb = $("sitztabelle").querySelector("tbody");
+    tb.textContent = "";
+    const kopf = document.createElement("tr");
+    kopf.innerHTML = "<th>Partei</th><th class='z'>Stimmen</th><th class='z'>rechnerisch</th>" +
+      SITZVERFAHREN.map((v) => "<th class='z'>" + v.name + "</th>").join("");
+    tb.append(kopf);
+    let maxAbw = 0, maxAbwText = "";
+    STIMMEN.forEach((v, i) => {
+      const anteil = v / gesamt;
+      const rechnerisch = anteil * SITZE;
+      const tr = document.createElement("tr");
+      let zellen = "";
+      for (const e of ergebnisse) {
+        const abw = e.sitze[i] - rechnerisch;
+        if (Math.abs(abw) > Math.abs(maxAbw)) {
+          maxAbw = abw;
+          maxAbwText = PARTEIEN[i] + " nach " + e.v.name;
+        }
+        const stark = Math.abs(abw) >= 0.5;
+        zellen += "<td class='z" + (stark ? (abw > 0 ? " gutt" : " schlecht") : "") + "'>" +
+          e.sitze[i] + "</td>";
+      }
+      tr.innerHTML = "<td>" + chip(i) + PARTEIEN[i] + "</td>" +
+        "<td class='z'>" + (anteil * 100).toFixed(1) + " %</td>" +
+        "<td class='z' style='color:var(--leise)'>" + rechnerisch.toFixed(2) + "</td>" + zellen;
+      tb.append(tr);
+    });
+    const summe = document.createElement("tr");
+    summe.innerHTML = "<td class='kl'>Summe</td><td class='z'>100 %</td><td class='z'>" + SITZE + "</td>" +
+      ergebnisse.map((e) => "<td class='z'>" + e.sitze.reduce((s, x) => s + x, 0) + "</td>").join("");
+    tb.append(summe);
+
+    // Quotenbrüche: mehr oder weniger Sitze als die auf- oder abgerundete Quote
+    let brueche = [];
+    for (const e of ergebnisse) {
+      for (let i = 0; i < STIMMEN.length; i++) {
+        const q = STIMMEN[i] / gesamt * SITZE;
+        if (e.sitze[i] > Math.ceil(q) || e.sitze[i] < Math.floor(q))
+          brueche.push(e.v.name + "/" + PARTEIEN[i]);
+      }
+    }
+    $("w-abw").textContent = (maxAbw > 0 ? "+" : "") + maxAbw.toFixed(2);
+    $("w-abw").className = "n " + (Math.abs(maxAbw) > 0.5 ? "warn" : "");
+    $("w-quote").textContent = brueche.length;
+    $("w-quote").className = "n " + (brueche.length ? "warn" : "gut");
+    $("bevorzugt-fuss").innerHTML =
+      "Größte Abweichung vom rechnerischen Anspruch: <b>" + (maxAbw > 0 ? "+" : "") +
+      maxAbw.toFixed(2) + " Sitze</b> (" + maxAbwText + "). " +
+      (brueche.length
+        ? "<b>Quotenbruch bei " + brueche.join(", ") + "</b> — dort bekommt eine Partei mehr oder " +
+          "weniger, als ihre auf- bzw. abgerundete Quote zulässt. Bei Hare-Niemeyer kann das nicht " +
+          "passieren, bei den Divisorverfahren schon."
+        : "Kein Quotenbruch: jede Partei liegt zwischen ihrer abgerundeten und aufgerundeten Quote.");
+
+    $("sitz-lage").textContent = SITZE + " Sitze · " + (gesamt / 1000).toFixed(0) + "k Stimmen";
+
+    zeichnenSitze(ergebnisse);
+    zeichnenAlabama();
+  }
+
+  function zeichnenSitze(ergebnisse) {
+    const c = $("sitze"), g = c.getContext("2d");
+    g.fillStyle = farbe("--tief"); g.fillRect(0, 0, c.width, c.height);
+    const links = 130, rechts = 12, oben = 14, unten = 10;
+    const B = c.width - links - rechts;
+    const zeilenHoehe = (c.height - oben - unten) / (ergebnisse.length + 1);
+    g.font = "12px ui-monospace, monospace";
+    g.textBaseline = "middle";
+
+    // Referenz: die rechnerischen Anteile
+    const gesamt = STIMMEN.reduce((s, v) => s + v, 0);
+    const reihen = [{ name: "rechnerisch", werte: STIMMEN.map((v) => v / gesamt * SITZE), blass: true }]
+      .concat(ergebnisse.map((e) => ({ name: e.v.name, werte: e.sitze, blass: false })));
+
+    reihen.forEach((reihe, idx) => {
+      const y = oben + idx * zeilenHoehe + zeilenHoehe / 2;
+      const hoehe = Math.min(28, zeilenHoehe * 0.6);
+      g.textAlign = "right"; g.fillStyle = farbe(reihe.blass ? "--leise" : "--tinte");
+      g.fillText(reihe.name, links - 10, y);
+      let x = links;
+      reihe.werte.forEach((w, i) => {
+        const breite = w / SITZE * B;
+        g.fillStyle = farbe(FARBEN[i % 5]);
+        g.globalAlpha = reihe.blass ? 0.35 : 1;
+        g.fillRect(x, y - hoehe / 2, Math.max(0, breite - 1), hoehe);
+        g.globalAlpha = 1;
+        if (breite > 22 && !reihe.blass) {
+          g.fillStyle = farbe("--feld"); g.textAlign = "center";
+          g.fillText(String(w), x + breite / 2, y);
+        }
+        x += breite;
+      });
+    });
+  }
+
+  /* Alabama: dieselben Stimmen, ein Sitz mehr im Parlament — und eine Partei
+     verliert. Gesucht statt behauptet. */
+  function alabamaSuchen(art) {
+    const bis = 220;
+    const verlauf = [];
+    const rechnen = art === "hare" ? (s) => hareNiemeyer(STIMMEN, s) : (s) => hoechstzahlen(STIMMEN, s, art);
+    let vorher = null;
+    const brueche = [];
+    for (let s = 1; s <= bis; s++) {
+      const jetzt = rechnen(s);
+      verlauf.push(jetzt);
+      if (vorher) {
+        for (let i = 0; i < jetzt.length; i++) {
+          if (jetzt[i] < vorher[i]) brueche.push({ sitze: s, partei: i, von: vorher[i], auf: jetzt[i] });
+        }
+      }
+      vorher = jetzt;
+    }
+    return { verlauf, brueche };
+  }
+
+  function zeichnenAlabama() {
+    const c = $("alabama"), g = c.getContext("2d");
+    g.fillStyle = farbe("--tief"); g.fillRect(0, 0, c.width, c.height);
+    const links = 44, rechts = 10, oben = 12, unten = 26;
+    const B = c.width - links - rechts, H = c.height - oben - unten;
+
+    const hare = alabamaSuchen("hare");
+    const dhondt = alabamaSuchen("dhondt");
+    const bis = hare.verlauf.length;
+    // gezeigt wird die Partei mit dem auffälligsten Bruch, sonst die kleinste
+    const partei = hare.brueche.length ? hare.brueche[0].partei : STIMMEN.length - 1;
+    const maxY = Math.max(...hare.verlauf.map((v) => v[partei]), 1);
+
+    const nachX = (s) => links + (s - 1) / (bis - 1) * B;
+    const nachY = (v) => oben + H * (1 - v / (maxY * 1.1));
+
+    g.strokeStyle = farbe("--netz"); g.globalAlpha = .4; g.lineWidth = 1;
+    g.font = "10px ui-monospace, monospace"; g.fillStyle = farbe("--leise");
+    g.textAlign = "right"; g.textBaseline = "middle";
+    const schritt = Math.max(1, Math.ceil(maxY / 6));
+    for (let v = 0; v <= maxY; v += schritt) {
+      const y = nachY(v);
+      g.beginPath(); g.moveTo(links, y); g.lineTo(c.width - rechts, y); g.stroke();
+      g.globalAlpha = 1; g.fillText(String(v), links - 6, y); g.globalAlpha = .4;
+    }
+    g.textAlign = "center"; g.textBaseline = "top";
+    for (let s = 0; s <= bis; s += 20) {
+      if (s === 0) continue;
+      const x = nachX(s);
+      g.beginPath(); g.moveTo(x, oben); g.lineTo(x, oben + H); g.stroke();
+      g.globalAlpha = 1; g.fillText(String(s), x, oben + H + 6); g.globalAlpha = .4;
+    }
+    g.globalAlpha = 1;
+
+    const treppe = (verlauf, farbname, breite, gestrichelt) => {
+      g.strokeStyle = farbe(farbname); g.lineWidth = breite;
+      if (gestrichelt) g.setLineDash([4, 3]);
+      g.beginPath();
+      verlauf.forEach((v, i) => {
+        const x = nachX(i + 1), y = nachY(v[partei]);
+        if (i === 0) g.moveTo(x, y);
+        else { g.lineTo(x, nachY(verlauf[i - 1][partei])); g.lineTo(x, y); }
+      });
+      g.stroke(); g.setLineDash([]);
+    };
+    treppe(dhondt.verlauf, "--leise", 1.2, true);
+    treppe(hare.verlauf, FARBEN[partei % 5], 1.8, false);
+
+    for (const b of hare.brueche) {
+      if (b.partei !== partei) continue;
+      g.fillStyle = farbe("--warn");
+      g.beginPath(); g.arc(nachX(b.sitze), nachY(b.auf), 4, 0, 7); g.fill();
+    }
+
+    $("alabama-lage").textContent = PARTEIEN[partei] + " · Parlament von 1 bis " + bis + " Sitzen";
+    const eigene = hare.brueche.filter((b) => b.partei === partei);
+    $("alabama-fuss").innerHTML =
+      "<span class='chip' style='background:var(" + FARBEN[partei % 5] + ")'></span>Hare-Niemeyer · " +
+      "<span class='chip' style='background:var(--leise)'></span>gestrichelt D'Hondt. " +
+      (hare.brueche.length
+        ? "<b>" + hare.brueche.length + " Alabama-Fälle gefunden</b> — bei Hare-Niemeyer verliert " +
+          eigene.map((b) => PARTEIEN[b.partei] + " bei " + b.sitze + " Sitzen einen (" + b.von + "→" + b.auf + ")")
+            .slice(0, 3).join(", ") +
+          ". Dieselben Stimmen, ein Sitz mehr zu verteilen, und eine Partei geht mit weniger heim. " +
+          "D'Hondt kann das nicht passieren — dafür bricht D'Hondt die Quote."
+        : "<b>Kein Alabama-Fall bei diesen Stimmen</b> — an den Reglern lässt sich einer finden; " +
+          "sie sind nicht selten.");
+  }
+
+  /* ===================== Erschöpfende Läufe ===================== */
+
+  /* Alle Aufteilungen von n Wählern auf die 6 Reihungen dreier Bewerber. */
+  const PERM3 = [[0,1,2],[0,2,1],[1,0,2],[1,2,0],[2,0,1],[2,1,0]];
+  function alleAufteilungen(n, teile) {
+    const raus = [];
+    const jetzt = new Array(teile).fill(0);
+    (function weiter(i, rest) {
+      if (i === teile - 1) { jetzt[i] = rest; raus.push(jetzt.slice()); return; }
+      for (let k = 0; k <= rest; k++) { jetzt[i] = k; weiter(i + 1, rest - k); }
+    })(0, n);
+    return raus;
+  }
+
+  const alsStapel = (verteilung) => verteilung
+    .map((anzahl, i) => ({ reihung: PERM3[i], anzahl }))
+    .filter((g) => g.anzahl > 0);
+
+  /* Der Monotonie-Bruch: den Sieger bei einer Wählergruppe um einen Platz
+     anheben und schauen, ob er dadurch verliert. Erschöpfend über alle Stapel,
+     alle Gruppen und alle Wählerzahlen — das kleinste Beispiel gewinnt. */
+  function monotonieSuchen(n) {
+    const aufteilungen = alleAufteilungen(n, 6);
+    let geprueft = 0;
+    for (const verteilung of aufteilungen) {
+      const stapel = alsStapel(verteilung);
+      if (!stapel.length) continue;
+      geprueft++;
+      const vorher = uebertragen(stapel, 3).sieger;
+      for (let gi = 0; gi < stapel.length; gi++) {
+        const g = stapel[gi];
+        const platz = g.reihung.indexOf(vorher);
+        if (platz <= 0) continue;                       // schon vorne, nichts zu verbessern
+        const neueReihung = g.reihung.slice();
+        [neueReihung[platz - 1], neueReihung[platz]] = [neueReihung[platz], neueReihung[platz - 1]];
+        for (let k = 1; k <= g.anzahl; k++) {
+          const neu = stapel.map((x, i) => i === gi
+            ? { reihung: x.reihung, anzahl: x.anzahl - k }
+            : { reihung: x.reihung, anzahl: x.anzahl });
+          neu.push({ reihung: neueReihung, anzahl: k });
+          const gefiltert = neu.filter((x) => x.anzahl > 0);
+          if (uebertragen(gefiltert, 3).sieger !== vorher) {
+            return { vorher: stapel, nachher: gefiltert, siegerVorher: vorher,
+                     siegerNachher: uebertragen(gefiltert, 3).sieger,
+                     gruppe: g.reihung, neueReihung, wechsel: k, geprueft: aufteilungen.length };
+          }
+        }
+      }
+    }
+    return null;
+  }
+
+  /* ===================== Prüflauf ===================== */
+  function pruefen() {
+    const tb = $("pruef").querySelector("tbody");
+    tb.textContent = "";
+    let fehler = 0;
+    const zeile = (was, gut, text) => {
+      const tr = document.createElement("tr");
+      tr.innerHTML = "<td>" + was + "</td><td style='color:" + (gut ? "var(--gut)" : "var(--warn)") + "'>" + text + "</td>";
+      tb.append(tr);
+      if (!gut) fehler++;
+    };
+    const t0 = performance.now();
+
+    // 1. Alle Stapel mit drei Bewerbern und neun Wählern: wer übergeht Condorcet?
+    let condorcetStatistik = null;
+    {
+      const aufteilungen = alleAufteilungen(9, 6);
+      const zaehler = {};
+      for (const v of VERFAHREN) zaehler[v.id] = 0;
+      let mitSieger = 0, zyklen = 0;
+      for (const verteilung of aufteilungen) {
+        const stapel = alsStapel(verteilung);
+        if (!stapel.length) continue;
+        const matrix = duellMatrix(stapel, 3);
+        const cw = condorcetSieger(matrix, 3);
+        if (cw < 0) { zyklen++; continue; }
+        mitSieger++;
+        for (const v of VERFAHREN) if (v.f(stapel, 3).sieger !== cw) zaehler[v.id]++;
+      }
+      condorcetStatistik = { zaehler, mitSieger, zyklen, gesamt: aufteilungen.length };
+      const anteil = (id) => (zaehler[id] / mitSieger * 100).toFixed(1) + " %";
+      zeile("alle Stapel gezählt (3 Bewerber, 9 Wähler)", true,
+        aufteilungen.length.toLocaleString("de-AT") + " Stapel · " + zyklen.toLocaleString("de-AT") +
+        " ohne Condorcet-Sieger (" + (zyklen / aufteilungen.length * 100).toFixed(1) + " %)");
+      zeile("wie oft der Condorcet-Sieger übergangen wird", true,
+        VERFAHREN.map((v) => v.name.split(" ")[0] + " " + anteil(v.id)).join(" · ") +
+        " von " + mitSieger.toLocaleString("de-AT") + " Stapeln mit eindeutigem Sieger");
+      // Die relative Mehrheit muss dabei schlechter sein als Borda — sonst wäre
+      // die Erzählung im Blatt falsch.
+      zeile("relative Mehrheit ist schlechter als Borda",
+        zaehler.relativ > zaehler.borda,
+        zaehler.relativ.toLocaleString("de-AT") + " gegen " + zaehler.borda.toLocaleString("de-AT") + " Fälle");
+    }
+
+    // 2. Der Monotonie-Bruch wird gefunden, nicht behauptet.
+    {
+      const fund = monotonieSuchen(9);
+      zeile("Monotonie-Bruch der übertragbaren Stimme", fund !== null,
+        fund
+          ? "gefunden: Sieger " + NAMEN[fund.siegerVorher] + " verliert gegen " +
+            NAMEN[fund.siegerNachher] + ", nachdem " +
+            (fund.wechsel === 1 ? "ein Wähler ihn" : fund.wechsel + " Wähler ihn") +
+            " von Platz " + (fund.gruppe.indexOf(fund.siegerVorher) + 1) + " auf Platz " +
+            (fund.neueReihung.indexOf(fund.siegerVorher) + 1) +
+            (fund.wechsel === 1 ? " gehoben hat" : " gehoben haben")
+          : "kein Gegenbeispiel gefunden");
+    }
+
+    // 3. Zwei unabhängige Rechnungen für dieselben Sitze.
+    {
+      let faelle = 0, ungleich = 0, beispiel = "";
+      /* Alle Stimmenbilder ohne exakten Gleichstand — Gleichstände sind eine
+         eigene Zeile weiter unten, weil dort keine der beiden Rechnungen recht
+         hat, sondern das Los. */
+      const stimmenSaetze = [
+        [382000, 291000, 176000, 94000, 57000],
+        [500001, 100000, 99999, 99998, 99997],
+        [333331, 333333, 333334, 7, 3],
+        [12, 7, 5, 3, 1],
+        [1000000, 3, 2, 1, 1]
+      ];
+      for (const art of ["dhondt", "sainte", "adams"]) {
+        for (const stimmenListe of stimmenSaetze) {
+          for (let sitze = 5; sitze <= 120; sitze++) {
+            faelle++;
+            const a = hoechstzahlen(stimmenListe, sitze, art);
+            const b = divisorsuche(stimmenListe, sitze, art);
+            if (a.join(",") !== b.join(",")) {
+              ungleich++;
+              if (!beispiel) beispiel = art + " bei " + sitze + " Sitzen: " + a.join("/") + " gegen " + b.join("/");
+            }
+          }
+        }
+      }
+      zeile("Höchstzahlen = Divisorsuche", ungleich === 0,
+        faelle.toLocaleString("de-AT") + " Fälle (3 Verfahren, 5 Stimmenbilder, 5 bis 120 Sitze) · " +
+        (ungleich === 0 ? "keine Abweichung" : ungleich + " Abweichungen, z. B. " + beispiel));
+    }
+
+    /* 3b. Der Gleichstand, den kein Verfahren auflöst: fünf Parteien, vier davon
+       mit genau gleich vielen Stimmen. Dann gibt es keinen Divisor, der die
+       Sitzzahl trifft, und beide Rechnungen sind gleich richtig. */
+    {
+      const gleich = [500000, 100000, 100000, 100000, 100000];
+      let mehrdeutig = 0, faelle = 0, reihenfolgeAbhaengig = 0, beispiel = "";
+      for (const art of ["dhondt", "sainte", "adams"]) {
+        for (let sitze = 5; sitze <= 120; sitze++) {
+          faelle++;
+          const info = {};
+          divisorsuche(gleich, sitze, art, info);
+          if (!info.eindeutig) mehrdeutig++;
+          /* Die Probe auf Willkür: dieselben Stimmen, nur die Parteien in
+             umgekehrter Reihenfolge aufgeschrieben. Kommt etwas anderes heraus,
+             hat nicht die Rechnung entschieden, sondern die Liste. */
+          const vorwaerts = hoechstzahlen(gleich, sitze, art);
+          const rueckwaerts = hoechstzahlen(gleich.slice().reverse(), sitze, art).reverse();
+          if (vorwaerts.join(",") !== rueckwaerts.join(",")) {
+            reihenfolgeAbhaengig++;
+            if (!beispiel) beispiel = RUNDUNG[art].name + " bei " + sitze + " Sitzen: " +
+              vorwaerts.join("/") + " oder " + rueckwaerts.join("/");
+          }
+        }
+      }
+      zeile("Gleichstand ist nicht auflösbar", mehrdeutig > 0 && reihenfolgeAbhaengig > 0,
+        mehrdeutig + " von " + faelle + " Fällen ohne eindeutigen Divisor, " + reihenfolgeAbhaengig +
+        " davon hängen an der Reihenfolge der Liste · " + beispiel +
+        " — im Wahlgesetz entscheidet hier das Los, nicht die Rechnung");
+    }
+
+    // 4. Jedes Verfahren verteilt genau die vorhandenen Sitze.
+    {
+      let faelle = 0, falsch = 0;
+      const z = (() => { let a = 20260817 >>> 0; return () => {
+        a = (a + 0x6D2B79F5) >>> 0; let t = a;
+        t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; })();
+      for (let lauf = 0; lauf < 60; lauf++) {
+        const stimmenListe = Array.from({ length: 3 + Math.floor(z() * 5) }, () => Math.floor(z() * 500000) + 1);
+        for (let sitze = 1; sitze <= 60; sitze++) {
+          for (const v of SITZVERFAHREN) {
+            faelle++;
+            const s = v.f(stimmenListe, sitze);
+            if (s.reduce((a, b) => a + b, 0) !== sitze) falsch++;
+            if (s.some((x) => x < 0)) falsch++;
+          }
+        }
+      }
+      zeile("Sitzsumme stimmt immer", falsch === 0,
+        faelle.toLocaleString("de-AT") + " Verteilungen (4 Verfahren, zufällige Stimmenbilder, 1 bis 60 Sitze)");
+    }
+
+    // 5. Die Quotenregel: Hare-Niemeyer hält sie, die Divisorverfahren nicht.
+    {
+      let hareBruch = 0, dhondtBruch = 0, sainteBruch = 0, faelle = 0;
+      const z = (() => { let a = 4711 >>> 0; return () => {
+        a = (a + 0x6D2B79F5) >>> 0; let t = a;
+        t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; })();
+      const bricht = (sitze, stimmenListe, verteilung) => {
+        const gesamt = stimmenListe.reduce((s, v) => s + v, 0);
+        let n = 0;
+        for (let i = 0; i < stimmenListe.length; i++) {
+          const q = stimmenListe[i] / gesamt * sitze;
+          if (verteilung[i] > Math.ceil(q) + 1e-9 || verteilung[i] < Math.floor(q) - 1e-9) n++;
+        }
+        return n;
+      };
+      for (let lauf = 0; lauf < 120; lauf++) {
+        const stimmenListe = Array.from({ length: 4 + Math.floor(z() * 4) }, () => Math.floor(z() * 400000) + 1);
+        for (let sitze = 10; sitze <= 100; sitze += 3) {
+          faelle++;
+          hareBruch += bricht(sitze, stimmenListe, hareNiemeyer(stimmenListe, sitze));
+          dhondtBruch += bricht(sitze, stimmenListe, hoechstzahlen(stimmenListe, sitze, "dhondt"));
+          sainteBruch += bricht(sitze, stimmenListe, hoechstzahlen(stimmenListe, sitze, "sainte"));
+        }
+      }
+      zeile("Hare-Niemeyer hält die Quote, Divisoren nicht",
+        hareBruch === 0 && dhondtBruch > 0,
+        faelle.toLocaleString("de-AT") + " Verteilungen · Quotenbrüche: Hare-Niemeyer " + hareBruch +
+        " · D'Hondt " + dhondtBruch.toLocaleString("de-AT") + " · Sainte-Laguë " + sainteBruch.toLocaleString("de-AT"));
+    }
+
+    // 6. Alabama: Hare-Niemeyer verliert Sitze beim Wachsen, D'Hondt nie.
+    {
+      const z = (() => { let a = 99991 >>> 0; return () => {
+        a = (a + 0x6D2B79F5) >>> 0; let t = a;
+        t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; })();
+      let hareFaelle = 0, dhondtFaelle = 0, sainteFaelle = 0, bilder = 0, erstes = "";
+      for (let lauf = 0; lauf < 40; lauf++) {
+        const stimmenListe = Array.from({ length: 5 }, () => Math.floor(z() * 400000) + 1);
+        bilder++;
+        let vh = null, vd = null, vs = null;
+        for (let sitze = 1; sitze <= 150; sitze++) {
+          const h = hareNiemeyer(stimmenListe, sitze);
+          const d = hoechstzahlen(stimmenListe, sitze, "dhondt");
+          const s = hoechstzahlen(stimmenListe, sitze, "sainte");
+          if (vh) for (let i = 0; i < h.length; i++) if (h[i] < vh[i]) {
+            hareFaelle++;
+            if (!erstes) erstes = "bei " + sitze + " Sitzen verliert Partei " + (i + 1) +
+              " (" + vh[i] + "→" + h[i] + ")";
+          }
+          if (vd) for (let i = 0; i < d.length; i++) if (d[i] < vd[i]) dhondtFaelle++;
+          if (vs) for (let i = 0; i < s.length; i++) if (s[i] < vs[i]) sainteFaelle++;
+          vh = h; vd = d; vs = s;
+        }
+      }
+      zeile("Alabama-Fälle gesucht", hareFaelle > 0 && dhondtFaelle === 0 && sainteFaelle === 0,
+        bilder + " Stimmenbilder, Parlament von 1 bis 150 · Hare-Niemeyer " + hareFaelle +
+        " Sitzverluste (" + erstes + ") · D'Hondt " + dhondtFaelle + " · Sainte-Laguë " + sainteFaelle);
+    }
+
+    // 7. Sainte-Laguë liegt näher am Stimmenanteil als D'Hondt — gemessen.
+    {
+      const z = (() => { let a = 13337 >>> 0; return () => {
+        a = (a + 0x6D2B79F5) >>> 0; let t = a;
+        t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; })();
+      let fehlerD = 0, fehlerS = 0, fehlerH = 0, faelle = 0, grossD = 0, grossS = 0;
+      for (let lauf = 0; lauf < 200; lauf++) {
+        const stimmenListe = Array.from({ length: 5 }, () => Math.floor(z() * 400000) + 1);
+        const gesamt = stimmenListe.reduce((s, v) => s + v, 0);
+        const groesste = stimmenListe.indexOf(Math.max(...stimmenListe));
+        for (const sitze of [30, 63, 120]) {
+          faelle++;
+          const soll = stimmenListe.map((v) => v / gesamt * sitze);
+          const d = hoechstzahlen(stimmenListe, sitze, "dhondt");
+          const s = hoechstzahlen(stimmenListe, sitze, "sainte");
+          const h = hareNiemeyer(stimmenListe, sitze);
+          for (let i = 0; i < soll.length; i++) {
+            fehlerD += Math.abs(d[i] - soll[i]);
+            fehlerS += Math.abs(s[i] - soll[i]);
+            fehlerH += Math.abs(h[i] - soll[i]);
+          }
+          grossD += d[groesste] - soll[groesste];
+          grossS += s[groesste] - soll[groesste];
+        }
+      }
+      zeile("Sainte-Laguë liegt näher, D'Hondt bevorzugt die Größte",
+        fehlerS < fehlerD && grossD > grossS,
+        faelle + " Verteilungen · mittlerer Sitzfehler: D'Hondt " + (fehlerD / faelle / 5).toFixed(3) +
+        " · Sainte-Laguë " + (fehlerS / faelle / 5).toFixed(3) + " · Hare-Niemeyer " +
+        (fehlerH / faelle / 5).toFixed(3) + " · Aufschlag für die größte Partei: D'Hondt +" +
+        (grossD / faelle).toFixed(2) + " gegen Sainte-Laguë " + (grossS / faelle >= 0 ? "+" : "") +
+        (grossS / faelle).toFixed(2) + " Sitze");
+    }
+
+    // 8. Die Duellmatrix gegen die stumpfe Zählung der Zettel.
+    {
+      let faelle = 0, ungleich = 0;
+      for (const verteilung of alleAufteilungen(6, 6)) {
+        const stapel = alsStapel(verteilung);
+        if (!stapel.length) continue;
+        faelle++;
+        const matrix = duellMatrix(stapel, 3);
+        // stumpf: jeden Zettel einzeln ausschreiben und paarweise abzählen
+        const zettel = [];
+        for (const g of stapel) for (let k = 0; k < g.anzahl; k++) zettel.push(g.reihung);
+        for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) {
+          if (i === j) continue;
+          let n = 0;
+          for (const zt of zettel) if (zt.indexOf(i) < zt.indexOf(j)) n++;
+          if (n !== matrix[i][j]) ungleich++;
+        }
+      }
+      zeile("Duellmatrix gegen einzeln abgezählte Zettel", ungleich === 0,
+        faelle.toLocaleString("de-AT") + " Stapel (6 Wähler) erschöpfend · " +
+        (ungleich === 0 ? "keine Abweichung" : ungleich + " Abweichungen"));
+    }
+
+    const dauer = performance.now() - t0;
+    $("pruef-fuss").innerHTML = fehler === 0
+      ? "<b>Alle Prüfungen bestanden</b> in " + dauer.toFixed(0) + " ms. Die zweite und die sechste " +
+        "Zeile sind die interessanten: dort wird nach einem Gegenbeispiel gesucht, und die Prüfung " +
+        "ist genau dann bestanden, wenn eines <b>gefunden</b> wird. Wäre keines da, wäre die " +
+        "Erklärung in diesem Blatt falsch."
+      : "<b style='color:var(--warn)'>" + fehler + " Prüfung(en) fehlgeschlagen.</b>";
+  }
+
+  /* ===================== Bedienung ===================== */
+  {
+    const w = $("vorlage");
+    for (const [k, v] of Object.entries(VORLAGEN)) {
+      const o = document.createElement("option");
+      o.value = k; o.textContent = v.name;
+      w.append(o);
+    }
+    w.value = AKTUELL;
+    w.addEventListener("change", () => vorlageLaden(w.value));
+  }
+  $("sitzzahl").addEventListener("input", sitzeAlles);
+  $("b-pruefen").addEventListener("click", pruefen);
+  $("b-thema").addEventListener("click", () => {
+    const jetzt = document.documentElement.getAttribute("data-theme");
+    const dunkel = matchMedia("(prefers-color-scheme: dark)").matches;
+    document.documentElement.setAttribute("data-theme", jetzt ? (jetzt === "dark" ? "light" : "dark") : (dunkel ? "light" : "dark"));
+    alles();
+  });
+  matchMedia("(prefers-color-scheme: dark)").addEventListener("change", alles);
+
+  parteienBauen();
+  vorlageLaden(AKTUELL);
+})();
+</script>
+</body>
+</html>
