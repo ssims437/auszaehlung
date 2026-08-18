@@ -120,7 +120,7 @@ Canvas 2D, erschöpfende Aufzählung aller Stapel, hell und dunkel.
 
 ## Die ganze Sammlung
 
-Fünfzehn Blätter nach Feld geordnet, jedes mit eigenem Repo:
+Alle Blätter nach Feld geordnet, jedes mit eigenem Repo:
 **[ssims437.github.io](https://ssims437.github.io/)**
 
 ## Lizenz
